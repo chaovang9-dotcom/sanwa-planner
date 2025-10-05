@@ -1,5 +1,5 @@
 // sw.js — minimal offline cache (generated)
-const CACHE = 'planner-v5'; // bump this
+const CACHE = 'planner-v6';
 const ASSETS = [
   "./",
   "./index.html",
