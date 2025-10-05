@@ -88,23 +88,37 @@
 
   <div id="toastContainer"></div>
 
-  <!-- Defer scripts, in dependency-safe order -->
-  <script defer src="js/core.js"></script>    <!-- sets up SANWA + element refs (#gridCanvas, etc.) -->
-  <script defer src="js/tools.js"></script>   <!-- builds tool panel UI -->
-  <script defer src="js/drawing.js"></script> <!-- mouse/keyboard, selection/transform -->
-  <script defer src="js/print.js"></script>   <!-- print pipeline, legend (used by menu) -->
-  <script defer src="js/menu.js"></script>    <!-- wires File/Edit/View; expects SANWA.print.* -->
-  <script defer src="js/mobile.js"></script>
-  <script defer src="js/mobile-layout.js"></script>
-<script>
-// Fix mobile 100vh (iOS URL bar)
-function setVH(){ document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
-setVH(); window.addEventListener('resize', setVH);
+<!-- core app -->
+<script defer src="js/core.js"></script>
+<script defer src="js/tools.js"></script>
+<script defer src="js/drawing.js"></script>
+<script defer src="js/print.js"></script>
+<script defer src="js/menu.js"></script>
 
-// Register service worker (PWA)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-}
+<!-- mobile helpers -->
+<script defer src="js/mobile.js"></script>
+<script defer src="js/mobile-layout.js"></script>
+<script defer src="js/canvas-fit.js"></script> <!-- must be last so it sizes after everything -->
+
+<!-- iOS viewport & service worker bootstrap -->
+<script>
+  // Fix mobile 100vh (iOS URL bar) and register service worker
+  function setVH() {
+    const vh = ((window.visualViewport?.height || window.innerHeight) * 0.01);
+    document.documentElement.style.setProperty('--vh', vh + 'px');
+  }
+  setVH();
+  window.addEventListener('resize', setVH);
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', setVH);
+    visualViewport.addEventListener('scroll', setVH);
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('./sw.js').catch(() => {})
+    );
+  }
 </script>
 </body>
 </html>
