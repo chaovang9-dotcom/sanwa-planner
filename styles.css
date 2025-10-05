@@ -288,7 +288,7 @@ body {
 }
 #canvasWrap, canvas { touch-action: none; }
 
-/* Mobile hard locks to prevent downward expansion */
+/* Mobile lock helpers */
 @media (max-width: 900px){
   html, body { height: calc(var(--vh, 1vh) * 100); overflow: hidden; }
   body { display: flex; flex-direction: column; }
