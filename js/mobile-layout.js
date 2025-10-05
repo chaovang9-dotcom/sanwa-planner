@@ -1,21 +1,29 @@
-/* Mobile Layout Mode v1.1 — locks canvas height on mobile
-   - No ResizeObserver feedback loops
-   - Computes exact viewport height minus topbar + safe areas
-   - No extra spacer div (removes the previous sizer approach)
-   - Works alongside js/mobile.js gestures
+/* Mobile Layout Mode v1.2 — iOS VisualViewport aware (Safari + Home Screen)
+   - Locks #canvasWrap to the *visible* viewport height
+   - Uses window.visualViewport when available (iOS)
+   - No ResizeObserver loops; no spacer elements
+   - Works alongside js/mobile.js (gestures) and your current code
 */
 (function () {
   const S = (window.SANWA = window.SANWA || {});
-  const BPX = 900; // mobile breakpoint
+  const MOBILE_BP = 900; // px
 
   function ready(fn){
     if (document.readyState !== "loading") fn();
     else document.addEventListener("DOMContentLoaded", fn);
   }
 
+  function vpHeight() {
+    // Prefer iOS VisualViewport if available
+    if (window.visualViewport && typeof window.visualViewport.height === "number") {
+      return window.visualViewport.height;
+    }
+    // Fallback to layout viewport
+    return window.innerHeight;
+  }
+
   function setVHVar(){
-    // iOS URL bar safe viewport
-    const vh = window.innerHeight * 0.01;
+    const vh = vpHeight() * 0.01;
     document.documentElement.style.setProperty("--vh", `${vh}px`);
   }
 
@@ -29,13 +37,13 @@
     return tag;
   }
 
-  function applyCSS(isMobile){
+  function applyMobileCSS(){
     const st = ensureStyle();
     st.textContent = `
-      :root { --vh: ${window.innerHeight * 0.01}px; }
+      :root { --vh: ${vpHeight() * 0.01}px; }
 
-      /* Prevent page from growing as canvas changes height */
-      @media (max-width:${BPX}px){
+      /* Lock the page to the visible viewport; prevent page growth */
+      @media (max-width:${MOBILE_BP}px){
         html, body { height: calc(var(--vh) * 100); overflow: hidden; }
         body {
           display: flex; flex-direction: column;
@@ -46,50 +54,57 @@
         }
         .topbar { flex: 0 0 auto; flex-wrap: wrap; gap: 8px; }
         #canvasWrap { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+        /* Optional: limit long sidebars from pushing layout */
         #leftSidebar, #rightSidebar { width: 100%; order: 2; max-height: 45vh; overflow:auto; }
         .panel { margin: 8px 0; }
-        /* make controls tappable */
         .topbar button, .tools button, .menu .dropdown button { min-width:44px; min-height:44px; }
       }
 
-      /* Canvas must not trigger page scroll while panning/zooming */
-      #canvasWrap, canvas { touch-action: none; }
+      #canvasWrap, canvas { touch-action: none; } /* stop page scroll while panning canvas */
     `;
   }
 
-  function lockCanvasHeight(){
-    const topbar = document.querySelector(".topbar");
-    const wrap   = document.getElementById("canvasWrap") || document.body;
-    if (!wrap) return;
+  function getEl(sel){ return document.querySelector(sel); }
 
-    const isMobile = window.innerWidth <= BPX;
-    applyCSS(isMobile);
-
+  function lockCanvasHeight() {
+    const isMobile = window.innerWidth <= MOBILE_BP;
     if (!isMobile){
-      // Let desktop behave normally
-      wrap.style.height = "";
+      // desktop: clear any forced height
+      const wrap = getEl("#canvasWrap");
+      if (wrap) { wrap.style.height = ""; wrap.style.maxHeight = ""; }
       if (S.draw && typeof S.draw.resize === "function") { try{ S.draw.resize(); }catch(e){} }
       if (S.draw && typeof S.draw.all === "function")    { try{ S.draw.all();    }catch(e){} }
       return;
     }
 
-    // Compute available height: viewport minus topbar minus safe areas (CSS handles padding)
-    const topH = topbar ? topbar.getBoundingClientRect().height : 0;
-    const avail = Math.max(0, window.innerHeight - topH);
+    const topbar = getEl(".topbar");
+    const wrap   = getEl("#canvasWrap") || document.body;
+    if (!wrap) return;
 
-    // Hard-pin the wrapper height; prevents incremental page growth
+    // Height that is actually visible (accounts for Safari toolbars)
+    const visibleH = vpHeight();
+
+    // Measure top bar (might be 0 if hidden/absent)
+    const tbH = topbar ? topbar.getBoundingClientRect().height : 0;
+
+    // Available pixels for canvas container
+    const avail = Math.max(0, Math.round(visibleH - tbH));
+
+    // Hard-pin — prevents incremental page growth
     wrap.style.height = avail + "px";
     wrap.style.maxHeight = avail + "px";
+    wrap.style.overflow = "hidden";
+    wrap.style.position = "relative";
 
-    // If your render code sizes the canvas from wrapper, trigger a resize + redraw
+    // Trigger your renderer to size canvas to its container
     if (S.draw && typeof S.draw.resize === "function") { try{ S.draw.resize(); }catch(e){} }
     if (S.draw && typeof S.draw.all === "function")    { try{ S.draw.all();    }catch(e){} }
   }
 
-  // OPTIONAL: simple collapsed menu on mobile (keeps UI compact)
+  // Optional compact topbar: keep existing menus but allow a single "Menu ▾"
   function mountHamburger(){
     if (document.getElementById("ml_hamburger")) return;
-    const topbar = document.querySelector(".topbar");
+    const topbar = getEl(".topbar");
     if (!topbar) return;
 
     const wrap = document.createElement("div");
@@ -105,7 +120,7 @@
     btn.style.borderRadius = "10px";
     btn.style.border = "1px solid #e5e7eb";
     btn.style.background = "#f9fafb";
-    btn.style.display = "none"; // shown only on mobile below
+    btn.style.display = "none"; // shown only on mobile
 
     const panel = document.createElement("div");
     panel.id = "ml_menuPanel";
@@ -172,19 +187,28 @@
       else panel.style.display = "none";
     });
 
-    // Show on mobile only
-    const mq = window.matchMedia(`(max-width:${BPX}px)`);
+    // Show hamburger on mobile only
+    const mq = window.matchMedia(`(max-width:${MOBILE_BP}px)`);
     function toggleBtn(e){ btn.style.display = e.matches ? "inline-flex" : "none"; }
     toggleBtn(mq); mq.addEventListener("change", toggleBtn);
   }
 
   function layoutAll(){
     setVHVar();
+    applyMobileCSS();
     lockCanvasHeight();
     mountHamburger();
   }
 
   ready(layoutAll);
+
+  // Resize handlers
   window.addEventListener("resize", layoutAll);
   window.addEventListener("orientationchange", ()=>setTimeout(layoutAll, 120));
+
+  // iOS: respond to the toolbar show/hide and address-bar changes
+  if (window.visualViewport){
+    window.visualViewport.addEventListener("resize", layoutAll);
+    window.visualViewport.addEventListener("scroll", layoutAll);
+  }
 })();
