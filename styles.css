@@ -288,10 +288,10 @@ body {
 }
 #canvasWrap, canvas { touch-action: none; }
 
-@media (max-width: 900px) {
-  .topbar { flex-wrap: wrap; gap: 6px; }
-  #leftSidebar, #rightSidebar { width: 100%; order: 2; }
-  #canvasWrap { order: 1; }
-  .panel { margin: 8px 0; }
+/* Mobile hard locks to prevent downward expansion */
+@media (max-width: 900px){
+  html, body { height: calc(var(--vh, 1vh) * 100); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #canvasWrap { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
 }
 .topbar button, .tools button, .menu .dropdown button { min-width: 44px; min-height: 44px; }
