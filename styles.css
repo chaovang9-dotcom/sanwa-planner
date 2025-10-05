@@ -295,3 +295,13 @@ body {
   #canvasWrap { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
 }
 .topbar button, .tools button, .menu .dropdown button { min-width: 44px; min-height: 44px; }
+/* Prevent 15-page grid issue */
+@media print {
+  html, body {
+    overflow: hidden !important;
+  }
+  #canvasWrap, canvas {
+    max-height: 100vh !important;
+    overflow: hidden !important;
+  }
+}
